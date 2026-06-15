@@ -1,0 +1,129 @@
+Open /etc/hosts on your client machine and **remove** or comment out the lines mapping www.priyam.com.
+```bash
+sudo vi /etc/hosts
+# Remove these lines:
+# 127.0.0.1       www.priyam.com
+# 192.168.74.74   www.priyam.com
+
+```
+## 2. Install and Configure BIND9 (On your DNS Server)
+If your DNS server is running on the same machine or a separate server (let's assume your server IP is 192.168.74.74), install BIND9:
+```bash
+sudo apt update && sudo apt install bind9 bind9utils bind9-doc -y
+
+```
+### Step A: Define the Zones in named.conf.local
+Open the local configuration file to declare your Forward and Reverse zones:
+```bash
+sudo vi /etc/bind/named.conf.local
+
+```
+Add the following zone definitions:
+```text
+// Forward Lookup Zone
+zone "priyam.com" {
+    type master;
+    file "/etc/bind/db.priyam.com";
+};
+
+// Reverse Lookup Zone (Based on network 192.168.74.x)
+zone "74.168.192.in-addr.arpa" {
+    type master;
+    file "/etc/bind/db.192";
+};
+
+```
+## 3. Create the Zone Data Files
+### Step B: Create the Forward Zone File (db.priyam.com)
+Create a new file by copying the default local template:
+```bash
+sudo cp /etc/bind/db.local /etc/bind/db.priyam.com
+sudo vi /etc/bind/db.priyam.com
+
+```
+Configure it with your **A (Address) records** and **CNAME (Alias) records**:
+```text
+;
+; BIND forward zone file for priyam.com
+;
+$TTL    604800
+@       IN      SOA     ns1.priyam.com. root.priyam.com. (
+                              2         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+; Name Servers
+@       IN      NS      ns1.priyam.com.
+
+; IP Addresses for Hostnames
+ns1     IN      A       192.168.74.74
+@       IN      A       192.168.74.74
+www     IN      A       192.168.74.74
+
+```
+### Step C: Create the Reverse Zone File (db.192)
+This handles the **PTR (Pointer) records**, which allows entities to verify that your IP explicitly maps back to your domain name (crucial for security compliance and auditing).
+```bash
+sudo cp /etc/bind/db.127 /etc/bind/db.192
+sudo vi /etc/bind/db.192
+
+```
+Configure it like this (note that 74 at the bottom corresponds to the last octet of 192.168.74.74):
+```text
+;
+; BIND reverse zone file for 192.168.74.x
+;
+$TTL    604800
+@       IN      SOA     ns1.priyam.com. root.priyam.com. (
+                              1         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+; Name Servers
+@       IN      NS      ns1.priyam.com.
+
+; PTR Records (Mapping IP last octet to FQDN)
+74      IN      PTR     www.priyam.com.
+74      IN      PTR     ns1.priyam.com.
+
+```
+## 4. Verify and Restart DNS Service
+Before starting the service, always check your syntax to make sure there are no typos that could crash the daemon:
+```bash
+# Check global configurations
+sudo named-checkconf
+
+# Check zone file syntax
+sudo named-checkzone priyam.com /etc/bind/db.priyam.com
+sudo named-checkzone 74.168.192.in-addr.arpa /etc/bind/db.192
+
+# If everything says OK, restart BIND
+sudo systemctl restart bind9
+
+```
+## 5. Configure the Client to Use Your New DNS
+Your client machine (or browser host) needs to know where to find this new DNS server. Edit the network resolver configuration file:
+```bash
+sudo vi /etc/resolv.conf
+
+```
+Add your DNS server IP at the very top:
+```text
+nameserver 192.168.74.74
+
+```
+## 6. Testing the Setup (Verification)
+To verify that network resolution is behaving exactly like your original layout, execute these diagnostic commands on your client machine:
+```bash
+# Test Forward Resolution (Should return 192.168.74.74)
+nslookup www.priyam.com
+
+# Test Reverse PTR Resolution (Should return www.priyam.com)
+nslookup 192.168.74.74
+
+```
+Once nslookup returns the correct values, open Firefox and navigate to https://www.priyam.com. The browser will transparently query your BIND server, obtain the IP, initialize the TLS handshake with Apache, cross-verify the certificate with the imported rootCA.crt, and securely serve your webpage with a valid HTTPS padlock indicator.
