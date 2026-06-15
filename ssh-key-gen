@@ -1,0 +1,32 @@
+setting up bidirectional, passwordless SSH authentication between two machines.
+### 1. Configuration on Machine 1
+```bash
+# Generate the SSH key pair (Public and Private keys)
+ssh-keygen
+# Copy Machine 1's public key to Machine 2 to enable passwordless login
+ssh-copy-id ubuntu@<IP_of_M2>
+```
+### 2. Configuration on Machine 2
+```bash
+# Generate the SSH key pair
+ssh-keygen
+# Copy Machine 2's public key back to Machine 1
+ssh-copy-id ubuntu@<IP_of_M1>
+```
+### 3. SSH Daemon Configuration Changes (To be done on BOTH machines)
+```bash
+# Open the SSH daemon configuration file
+sudo vim /etc/ssh/sshd_config
+```
+#### Inside /etc/ssh/sshd_config, make the following modifications:
+```text
+# Comment out password authentication to enforce key-based login
+# PasswordAuthentication yes
+# Uncomment or add this line to explicitly allow public key authentication
+PubkeyAuthentication yes
+```
+```bash
+# Save and exit vim using ':wq'
+# Restart the SSH service to apply changes
+sudo systemctl restart ssh
+```
