@@ -1,0 +1,47 @@
+### 1. VirtualHost Configuration File
+(
+# 1. Navigate to the sites-available directory
+cd /etc/apache2/sites-available/
+# 2. Copy the existing template file to create your new 'priyam.conf'
+sudo cp 000-default.conf priyam.conf
+# 3. Open your newly created file to make your modifications
+sudo vim priyam.conf
+)
+(/etc/apache2/sites-available/priyam.conf)
+```apache
+<VirtualHost *:443>
+ServerName www.priyam.com
+DocumentRoot /var/www/html
+SSLEngine on
+SSLCertificateFile www.priyam.com.pem
+SSLCertificateKeyFile priyam.key
+SSLCACertificateFile rootCA.crt
+</VirtualHost>
+```
+### 2. Main Apache Configuration (/etc/apache2/apache2.conf)
+```apache
+ServerName www.priyam.com
+```
+### 3. Local Hosts File (/etc/hosts)
+```text
+127.0.0.1 www.priyam.com
+192.168.74.74 www.priyam.com
+```
+## 4
+# Edit global apache configuration
+cd /etc/apache2
+sudo vi apache2.conf
+# Map the IP addresses locally
+sudo vi /etc/hosts
+# Enable SSL module, enable the site, and reload the service
+sudo a2enmod ssl
+cd /etc/apache2/sites-available
+sudo a2ensite priyam.conf
+sudo systemctl reload apache2
+```
+### 5. Browser Verification Steps
+```text
+Firefox -> Settings -> Search for "certificate" -> Manage Certificates -> Authorities -> Import ->
+rootCA.crt (Check Trust options) -> Okay
+Navigate to: https://www.priyam.com
+```
